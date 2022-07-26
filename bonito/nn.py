@@ -47,7 +47,7 @@ class Serial(torch.nn.Sequential):
 
 
 @register
-class Reverse(Module):
+class Reverse(Module): 
 
     def __init__(self, sublayers):
         super().__init__()
