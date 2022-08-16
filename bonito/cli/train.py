@@ -108,7 +108,7 @@ def argparser():
     group.add_argument('--config', default=default_config)
     group.add_argument('--pretrained', default="")
     parser.add_argument("--directory", type=Path)
-    parser.add_argument("--device", default="cuda")
+    parser.add_argument("--device", default="cpu")
     parser.add_argument("--lr", default='2e-3')
     parser.add_argument("--seed", default=25, type=int)
     parser.add_argument("--epochs", default=5, type=int)
@@ -122,3 +122,8 @@ def argparser():
     parser.add_argument("--save-optim-every", default=10, type=int)
     parser.add_argument("--grad-accum-split", default=1, type=int)
     return parser
+
+# args_parser = argparser().parse_args()
+# args_parser.training_directory = "/home/princezwang/software/bonito/bonito/output"
+# args_parser.directory = "/home/princezwang/software/bonito/bonito/data"
+# main(args_parser)
