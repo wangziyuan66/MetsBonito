@@ -2,6 +2,7 @@
 Bonito Basecaller
 """
 
+from asyncio.trsock import TransportSocket
 import os
 import sys
 import numpy as np
@@ -19,7 +20,37 @@ from bonito.mod_util import call_mods, load_mods_model
 from bonito.cli.download import File, models, __models__
 from bonito.multiprocessing import process_cancel, process_itemmap
 from bonito.util import column_to_set, load_symbol, load_model, init
+from bonito.ctc import basecall
 
+
+# from incremental_learning import Decoder
+import torch
+from torch import  nn, optim
+from bonito.nn import Permute, layers
+import torch
+from torch.nn.functional import log_softmax, ctc_loss
+from torch.nn import Module, ModuleList, Sequential, Conv1d, BatchNorm1d, Dropout
+
+
+class Decoder(Module):
+    """
+    Decoder
+    """
+    def __init__(self, features, classes):
+        super(Decoder, self).__init__()
+        self.layers = Sequential(
+            Conv1d(features, classes, kernel_size=1, bias=True),
+            Permute([2, 0, 1])
+        )
+
+    def forward(self, x):
+        return log_softmax(self.layers(x), dim=-1)
+
+def decode_ref(encoded, labels):
+    """
+    Convert a integer encoded reference into a string and remove blanks
+    """
+    return ''.join(labels[e] for e in encoded.tolist() if e)
 
 def main(args):
 
@@ -48,16 +79,7 @@ def main(args):
 
     sys.stderr.write(f"> loading model {args.model_directory}\n")
     try:
-        model = load_model(
-            args.model_directory,
-            args.device,
-            weights=args.weights if args.weights > 0 else None,
-            chunksize=args.chunksize,
-            overlap=args.overlap,
-            batchsize=args.batchsize,
-            quantize=args.quantize,
-            use_koi=True,
-        )
+        model = torch.load(args.model_directory)
     except FileNotFoundError:
         sys.stderr.write(f"> error: failed to load {args.model_directory}\n")
         sys.stderr.write(f"> available models:\n")
@@ -67,16 +89,16 @@ def main(args):
     if args.verbose:
         sys.stderr.write(f"> model basecaller params: {model.config['basecaller']}\n")
 
-    basecall = load_symbol(args.model_directory, "basecall")
+    # basecall = load_symbol(args.model_directory, "basecall")
 
     mods_model = None
-    if args.modified_base_model is not None or args.modified_bases is not None:
-        sys.stderr.write("> loading modified base model\n")
-        mods_model = load_mods_model(
-            args.modified_bases, args.model_directory, args.modified_base_model,
-            device=args.modified_device,
-        )
-        sys.stderr.write(f"> {mods_model[1]['alphabet_str']}\n")
+    # if args.modified_base_model is not None or args.modified_bases is not None:
+    #     sys.stderr.write("> loading modified base model\n")
+    #     mods_model = load_mods_model(
+    #         args.modified_bases, args.model_directory, args.modified_base_model,
+    #         device=args.modified_device,
+    #     )
+    #     sys.stderr.write(f"> {mods_model[1]['alphabet_str']}\n")
 
     if args.reference:
         sys.stderr.write("> loading reference\n")
@@ -123,6 +145,7 @@ def main(args):
         ResultsWriter = CTCWriter
     else:
         ResultsWriter = Writer
+    
 
     results = basecall(
         model, reads, reverse=args.revcomp,
@@ -130,8 +153,7 @@ def main(args):
         chunksize=model.config["basecaller"]["chunksize"],
         overlap=model.config["basecaller"]["overlap"]
     )
-    for itm in results:
-        print(itm)
+
     if mods_model is not None:
         if args.modified_device:
             results = ((k, call_mods(mods_model, k, v)) for k, v in results)
@@ -174,7 +196,7 @@ def argparser():
     parser.add_argument("--modified-procs", default=8, type=int)
     parser.add_argument("--modified-device", default=None)
     parser.add_argument("--read-ids")
-    parser.add_argument("--device", default="cpu")
+    parser.add_argument("--device", default="cuda")
     parser.add_argument("--seed", default=25, type=int)
     parser.add_argument("--weights", default=0, type=int)
     parser.add_argument("--skip", action="store_true", default=False)
@@ -188,9 +210,8 @@ def argparser():
     parser.add_argument("--overlap", default=None, type=int)
     parser.add_argument("--chunksize", default=None, type=int)
     parser.add_argument("--batchsize", default=None, type=int)
-    parser.add_argument("--max-reads", default=10, type=int)
+    parser.add_argument("--max-reads", default=500, type=int)
     parser.add_argument("--alignment-threads", default=8, type=int)
     parser.add_argument('-v', '--verbose', action='count', default=0)
     return parser
-
-# main(argparser().parse_args())
+main(argparser().parse_args())

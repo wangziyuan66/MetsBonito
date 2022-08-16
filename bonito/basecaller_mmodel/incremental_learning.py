@@ -2,8 +2,10 @@
 Bonito Model template
 """
 
+from pickletools import optimize
 import numpy as np
 
+from torch import  nn, optim
 from bonito.nn import Permute, layers
 import torch
 from torch.nn.functional import log_softmax, ctc_loss
@@ -17,6 +19,13 @@ from bonito.util import __models__, default_config, default_data, load_model
 from bonito.util import  load_symbol, init, half_supported, permute
 from bonito.training import load_state, Trainer
 from fast_ctc_decode import beam_search, viterbi_search
+from torch.utils.data import DataLoader, TensorDataset
+from bonito.reader import Reader
+
+
+from train_flipflop import gen_batch
+from _bin_argparse import get_train_flipflop_parser
+from early_stop import EarlyStopping
 
 class Decoder(Module):
     """
@@ -47,6 +56,9 @@ if 'lr_scheduler' in config:
     print(f"[ignoring 'lr_scheduler' in --pretrained config]")
     del config['lr_scheduler']
 model = load_model(dirname, 'cpu')
+
+
+
 # model = load_symbol(config, 'Model')(config)
 # scores = model(torch.randn(260,1,1000))
 # seqs = [model.decode(x) for x in permute(scores, 'TNC', 'NTC')]
@@ -64,7 +76,53 @@ param_new['layers.0.bias'] = decoder_bias
 decoder_m.load_state_dict(param_new)
 model.decoder = decoder_m
 model.alphabet = ['N', 'A', 'C', 'G', 'T', 'M']
-# model = load_symbol(config, 'Model')(config)
-scores = model(torch.randn(260,1,1000))
-seqs = [model.decode(x) for x in permute(scores, 'TNC', 'NTC')]
-print(seqs)
+
+# for p in model.encoder.parameters():
+#     p.requires_grad=False
+
+optimizer = optim.Adam(filter(lambda p:p.requires_grad, model.parameters()), lr=1e-3)
+
+def generate_dataset(dir):
+    main_batch = gen_batch(dir = dir)
+    batch_list = list(main_batch)
+    batch_tensor, seqref, seqlen = batch_list[0][0],batch_list[0][1],batch_list[0][2]
+    return batch_tensor, seqref, seqlen
+
+losses,classification_losses,reg_loss,test_losses,canonical_losses = [],[],[],[],[]
+
+
+train_batch_tensor,train_seqref,train_seqlen = generate_dataset("/home/princezwang/nanopore/dataset/dna/train_data/hdf5/mod_1/set1/batch0.hdf5")
+test_batch_tensor,test_seqref,test_seqlen = generate_dataset("/home/princezwang/nanopore/dataset/dna/train_data/hdf5/mod_1/set1/batch1.hdf5")
+canonical_batch_tensor,canonical_seqref,canonical_seqlen = generate_dataset("/home/princezwang/nanopore/dataset/dna/train_data/hdf5/canonical/set1/batch0.hdf5")
+early_stopping = EarlyStopping(patience=5, verbose=True,path="/home/princezwang/nanopore/results/dna/meta_bonito_dna.pt")
+for i in range(1000):
+    optimizer.zero_grad()
+    tmp = permute(train_batch_tensor,[0,1,2],[1,2,0]) 
+    scores = model(tmp)
+    # seqs = [model.decode(x) for x in permute(scores, 'TNC', 'NTC')]
+    loss = model.ctc_label_smoothing_loss(scores, train_seqref, train_seqlen)
+
+    test_scores = model(permute(test_batch_tensor,[0,1,2],[1,2,0]) )
+    test_loss = model.ctc_label_smoothing_loss(test_scores, test_seqref, test_seqlen)
+    canonical_scores = model(permute(canonical_batch_tensor,[0,1,2],[1,2,0]) )
+    canonical_loss = model.ctc_label_smoothing_loss(canonical_scores, canonical_seqref, canonical_seqlen)
+
+    loss['total_loss'].backward()
+    nn.utils.clip_grad_norm_(model.decoder.parameters(), max_norm=2, norm_type=2)
+    optimizer.step()
+    losses.append(float(loss['total_loss']))
+    classification_losses.append(float(loss['loss']))
+    reg_loss.append(float(loss['Regularization_loss']))
+    test_losses.append(float(test_loss['loss']))
+    canonical_losses.append(float(canonical_loss['loss']))
+    early_stopping(test_loss['loss'], model)
+    if early_stopping.early_stop:
+            break
+
+np.savetxt("/home/princezwang/nanopore/results/dna/losses.csv.gz", np.array(losses) , delimiter=" ",fmt='%.3e')
+np.savetxt("/home/princezwang/nanopore/results/dna/class_losses.csv.gz", np.array(classification_losses) , delimiter=" ",fmt='%.3e')
+np.savetxt("/home/princezwang/nanopore/results/dna/r1_losses.csv.gz", np.array(reg_loss) , delimiter=" ",fmt='%.3e')
+np.savetxt("/home/princezwang/nanopore/results/dna/test_losses.csv.gz", np.array(test_losses) , delimiter=" ",fmt='%.3e')
+np.savetxt("/home/princezwang/nanopore/results/dna/canonical_losses.csv.gz", np.array(canonical_losses) , delimiter=" ",fmt='%.3e')
+
+model

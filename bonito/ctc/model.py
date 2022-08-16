@@ -7,6 +7,7 @@ from bonito.nn import Permute, layers
 import torch
 from torch.nn.functional import log_softmax, ctc_loss
 from torch.nn import Module, ModuleList, Sequential, Conv1d, BatchNorm1d, Dropout
+from bonito.util import __models__, default_config, default_data, load_model
 
 from fast_ctc_decode import beam_search, viterbi_search
 
@@ -30,6 +31,10 @@ class Model(Module):
         self.alphabet = config['labels']['labels']
         self.features = config['block'][-1]['filters']
         self.encoder = Encoder(config)
+
+        for p in self.parameters():
+            p.requires_grad=False
+        
         self.decoder = Decoder(self.features, len(self.alphabet))
 
     def forward(self, x):
@@ -51,10 +56,19 @@ class Model(Module):
         log_probs_lengths = torch.full(size=(N, ), fill_value=T, dtype=torch.int64)
         loss = ctc_loss(log_probs.to(torch.float32), targets, log_probs_lengths, lengths, reduction='mean')
         label_smoothing_loss = -((log_probs * weights.to(log_probs.device)).mean())
-        return {'total_loss': loss + label_smoothing_loss, 'loss': loss, 'label_smooth_loss': label_smoothing_loss}
+        dirname = "/home/princezwang/software/bonito/bonito/models/dna_r9.4.1@v2"
+        regularization = self.model_weight_regularization_loss(model = load_model(dirname, 'cpu'))
+        return {'total_loss': loss + label_smoothing_loss+regularization*1e-2, 'loss': loss, 'label_smooth_loss': label_smoothing_loss, "Regularization_loss" : regularization*1e-2}
 
     def loss(self, log_probs, targets, lengths):
         return self.ctc_label_smoothing_loss(self, log_probs, targets, lengths)
+
+    def model_weight_regularization_loss(self,model,maintained = [0,1,2,3]):
+        decoder_wr = self.state_dict()["decoder.layers.0.weight"]
+        decoder_biasr = self.state_dict()["decoder.layers.0.bias"]
+        decoder_wp = model.state_dict()["decoder.layers.0.weight"]
+        decoder_biasp = model.state_dict()["decoder.layers.0.bias"]
+        return torch.sum(torch.abs(decoder_wp[maintained]-decoder_wr[maintained]))
 
 class Encoder(Module):
     """

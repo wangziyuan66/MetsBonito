@@ -32,18 +32,18 @@ def main(args):
     init(args.seed, args.device, (not args.nondeterministic))
     device = torch.device(args.device)
 
-    print("[loading data]")
-    try:
-        train_loader_kwargs, valid_loader_kwargs = load_numpy(
-            args.chunks, args.directory
-        )
-    except FileNotFoundError:
-        train_loader_kwargs, valid_loader_kwargs = load_script(
-            args.directory,
-            seed=args.seed,
-            chunks=args.chunks,
-            valid_chunks=args.valid_chunks
-        )
+    # print("[loading data]")
+    # try:
+    #     train_loader_kwargs, valid_loader_kwargs = load_numpy(
+    #         args.chunks, args.directory
+    #     )
+    # except FileNotFoundError:
+    #     train_loader_kwargs, valid_loader_kwargs = load_script(
+    #         args.directory,
+    #         seed=args.seed,
+    #         chunks=args.chunks,
+    #         valid_chunks=args.valid_chunks
+    #     )
 
     loader_kwargs = {
         "batch_size": args.batch, "num_workers": 4, "pin_memory": True
@@ -103,7 +103,7 @@ def argparser():
         formatter_class=ArgumentDefaultsHelpFormatter,
         add_help=False
     )
-    parser.add_argument("training_directory")
+    # parser.add_argument("training_directory")
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--config', default=default_config)
     group.add_argument('--pretrained', default="")
