@@ -711,7 +711,7 @@ def gen_batch(dir, limit = None, args = None):
     sub_batch_size = 22
     main_batch_gen = prepare_random_batches(
             read_data, batch_chunk_len, sub_batch_size,
-            1, alphabet_info, filter_params)
+            10, alphabet_info, filter_params)
     return main_batch_gen
 
 

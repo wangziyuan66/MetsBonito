@@ -58,7 +58,7 @@ class Model(Module):
         label_smoothing_loss = -((log_probs * weights.to(log_probs.device)).mean())
         dirname = "/home/princezwang/software/bonito/bonito/models/dna_r9.4.1@v2"
         regularization = self.model_weight_regularization_loss(model = load_model(dirname, 'cpu'))
-        return {'total_loss': loss + label_smoothing_loss+regularization*1e-2, 'loss': loss, 'label_smooth_loss': label_smoothing_loss, "Regularization_loss" : regularization*1e-2}
+        return {'total_loss': loss + label_smoothing_loss+regularization*5, 'loss': loss, 'label_smooth_loss': label_smoothing_loss, "Regularization_loss" : regularization*5}
 
     def loss(self, log_probs, targets, lengths):
         return self.ctc_label_smoothing_loss(self, log_probs, targets, lengths)
@@ -68,7 +68,7 @@ class Model(Module):
         decoder_biasr = self.state_dict()["decoder.layers.0.bias"]
         decoder_wp = model.state_dict()["decoder.layers.0.weight"]
         decoder_biasp = model.state_dict()["decoder.layers.0.bias"]
-        return torch.sum(torch.abs(decoder_wp[maintained]-decoder_wr[maintained]))
+        return torch.mean(torch.abs(decoder_wp[maintained]-decoder_wr[maintained]))
 
 class Encoder(Module):
     """

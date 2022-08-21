@@ -12,6 +12,8 @@ from functools import partial
 from datetime import timedelta
 from itertools import islice as take
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+import array
+import re
 
 from bonito.aligner import align_map, Aligner
 from bonito.reader import read_chunks, Reader
@@ -22,8 +24,6 @@ from bonito.multiprocessing import process_cancel, process_itemmap
 from bonito.util import column_to_set, load_symbol, load_model, init
 from bonito.ctc import basecall
 
-
-# from incremental_learning import Decoder
 import torch
 from torch import  nn, optim
 from bonito.nn import Permute, layers
@@ -31,6 +31,8 @@ import torch
 from torch.nn.functional import log_softmax, ctc_loss
 from torch.nn import Module, ModuleList, Sequential, Conv1d, BatchNorm1d, Dropout
 
+
+from remora.util import format_mm_ml_tags,softmax_axis1
 
 class Decoder(Module):
     """
@@ -144,16 +146,19 @@ def main(args):
         )
         ResultsWriter = CTCWriter
     else:
-        ResultsWriter = Writer
+        ResultsWriter = CTCWriter
     
 
     results = basecall(
         model, reads, reverse=args.revcomp,
         batchsize=model.config["basecaller"]["batchsize"],
         chunksize=model.config["basecaller"]["chunksize"],
-        overlap=model.config["basecaller"]["overlap"]
+        overlap=model.config["basecaller"]["overlap"],
+        beamsize=1,
+        qscores=True
     )
 
+    results = ((k,extend_mm_ml_tag(k,v,model))for k,v in results)
     if mods_model is not None:
         if args.modified_device:
             results = ((k, call_mods(mods_model, k, v)) for k, v in results)
@@ -210,8 +215,73 @@ def argparser():
     parser.add_argument("--overlap", default=None, type=int)
     parser.add_argument("--chunksize", default=None, type=int)
     parser.add_argument("--batchsize", default=None, type=int)
-    parser.add_argument("--max-reads", default=500, type=int)
-    parser.add_argument("--alignment-threads", default=8, type=int)
+    parser.add_argument("--max-reads", default=5, type=int)
+    parser.add_argument("--alignment-threads", default=4, type=int)
     parser.add_argument('-v', '--verbose', action='count', default=0)
     return parser
+
+def extend_mm_ml_tag(read,read_attrs,model):
+    scores = model(torch.tensor(read.signal).reshape(-1,1,1))
+    probs = softmax_axis1(scores.reshape(-1,scores.shape[2]).detach().numpy())[:, 1:].astype(np.float64)
+    mod_idx = [substr.start() for substr in re.finditer("M" , read_attrs['sequence'])]
+    mm,ml = format_mm_ml_tags(read_attrs['sequence'],mod_idx,probs,"M","C")
+    read_attrs['mods'] =[
+        f"MM:Z:{mm}",
+        f"ML:B:C,{','.join(map(str, ml))}"
+    ]
+    return read_attrs
+
+def format_mm_ml_tags(seq, poss, probs, mod_bases, can_base):
+    """Format MM and ML tags for BAM output. See
+    https://samtools.github.io/hts-specs/SAMtags.pdf for format details.
+
+    Args:
+        seq (str): read-centric read sequence. For reference-anchored calls
+            this should be the reverse complement sequence.
+        poss (list): positions relative to seq
+        probs (np.array): probabilties for modified bases
+        mod_bases (str): modified base single letter codes
+        can_base (str): canonical base
+
+    Returns:
+        MM string tag and ML array tag
+    """
+
+    # initialize dict with all called mods to make sure all called mods are
+    # shown in resulting tags
+    per_mod_probs = dict((mod_base, []) for mod_base in mod_bases)
+    for pos, mod_probs in sorted(zip(poss, probs)):
+        # mod_lps is set to None if invalid sequence is encountered or too
+        # few events are found around a mod
+        if mod_probs is None:
+            continue
+        for mod_prob, mod_base in zip(mod_probs, mod_bases):
+            mod_prob = mod_prob
+            per_mod_probs[mod_base].append((pos, mod_prob))
+
+    mm_tag, ml_tag = "", array.array("B")
+    for mod_base, pos_probs in per_mod_probs.items():
+        if len(pos_probs) == 0:
+            continue
+        mod_poss, probs = zip(*sorted(pos_probs))
+        # compute modified base positions relative to the running total of the
+        # associated canonical base
+        can_base_mod_poss = (
+            np.cumsum([1 if b == can_base else 0 for b in seq])[
+                np.array(mod_poss)
+            ]
+            - 1
+        )
+        mod_gaps = ",".join(
+            map(str, np.diff(np.insert(can_base_mod_poss, 0, -1)) - 1)
+        )
+        mm_tag += f"{can_base}+{mod_base}?,{mod_gaps};"
+        # extract mod scores and scale to 0-255 range
+        scaled_probs = np.floor(np.array(probs) * 256)
+        # last interval includes prob=1
+        scaled_probs[scaled_probs == 256] = 255
+        ml_tag.extend(scaled_probs.astype(np.uint8))
+
+    return mm_tag, ml_tag
+
 main(argparser().parse_args())

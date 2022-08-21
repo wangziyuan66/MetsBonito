@@ -1,0 +1,78 @@
+asttokens @ file:///opt/conda/conda-bld/asttokens_1646925590279/work
+backcall @ file:///home/ktietz/src/ci/backcall_1611930011877/work
+biopython==1.76
+certifi @ file:///opt/conda/conda-bld/certifi_1655968806487/work/certifi
+cffi==1.15.1
+chardet==4.0.0
+cycler==0.11.0
+Cython @ file:///opt/conda/conda-bld/cython_1656941947712/work
+debugpy @ file:///tmp/build/80754af9/debugpy_1637091796427/work
+decorator @ file:///opt/conda/conda-bld/decorator_1643638310831/work
+entrypoints @ file:///tmp/build/80754af9/entrypoints_1649926445639/work
+executing @ file:///opt/conda/conda-bld/executing_1646925071911/work
+fast_ctc_decode==0.3.2
+flatbuffers==2.0
+fonttools==4.34.4
+h5py==3.7.0
+idna==2.10
+ipykernel @ file:///tmp/build/80754af9/ipykernel_1646982648551/work/dist/ipykernel-6.9.1-py3-none-any.whl
+ipython @ file:///opt/conda/conda-bld/ipython_1657652213665/work
+iso8601==1.0.2
+jedi @ file:///tmp/build/80754af9/jedi_1644315233700/work
+joblib==1.1.0
+jupyter-client @ file:///opt/conda/conda-bld/jupyter_client_1650622202839/work
+jupyter-core @ file:///opt/conda/conda-bld/jupyter_core_1651671229925/work
+kiwisolver==1.4.4
+mappy==2.24
+matplotlib==3.5.2
+matplotlib-inline @ file:///tmp/build/80754af9/matplotlib-inline_1628242447089/work
+more-itertools==8.13.0
+nest-asyncio @ file:///tmp/build/80754af9/nest-asyncio_1649847908682/work
+numpy==1.21.6
+onnx==1.12.0
+onnxruntime==1.11.0
+-e git+https://github.com/wangziyuan66/MetsBonito.git@3f7baf807693b967d435a7cfd6fb3cf1bed65ead#egg=ont_bonito
+ont-fast5-api==3.3.0
+ont-koi==0.1.0
+ont-remora==1.1.1
+packaging==21.3
+pandas==1.4.3
+parasail==1.2
+parso @ file:///opt/conda/conda-bld/parso_1641458642106/work
+patsy==0.5.2
+pexpect @ file:///tmp/build/80754af9/pexpect_1605563209008/work
+pickleshare @ file:///tmp/build/80754af9/pickleshare_1606932040724/work
+Pillow==9.2.0
+pod5-format==0.0.14
+pod5-format-tools==0.0.14
+progressbar33==2.4
+prompt-toolkit @ file:///tmp/build/80754af9/prompt-toolkit_1633440160888/work
+protobuf==3.20.1
+ptyprocess @ file:///tmp/build/80754af9/ptyprocess_1609355006118/work/dist/ptyprocess-0.7.0-py2.py3-none-any.whl
+pure-eval @ file:///opt/conda/conda-bld/pure_eval_1646925070566/work
+pyarrow==7.0.0
+pycparser==2.21
+Pygments @ file:///opt/conda/conda-bld/pygments_1644249106324/work
+pyparsing==3.0.9
+pysam==0.18.0
+python-dateutil @ file:///tmp/build/80754af9/python-dateutil_1626374649649/work
+pytz==2022.1
+pyzmq @ file:///opt/conda/conda-bld/pyzmq_1657724186960/work
+requests==2.25.1
+scikit-learn==1.1.1
+scipy==1.7.3
+six @ file:///tmp/build/80754af9/six_1644875935023/work
+stack-data @ file:///opt/conda/conda-bld/stack_data_1646927590127/work
+statsmodels==0.13.2
+tabulate==0.8.10
+taiyaki==5.3.0
+thop==0.1.0.post2207010342
+threadpoolctl==3.1.0
+toml==0.10.2
+torch==1.12.0
+tornado @ file:///tmp/build/80754af9/tornado_1606942300299/work
+tqdm==4.64.0
+traitlets @ file:///tmp/build/80754af9/traitlets_1636710298902/work
+typing_extensions==4.3.0
+urllib3==1.26.10
+wcwidth @ file:///Users/ktietz/demo/mc3/conda-bld/wcwidth_1629357192024/work
