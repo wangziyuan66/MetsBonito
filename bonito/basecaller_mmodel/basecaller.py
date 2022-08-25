@@ -154,18 +154,16 @@ def main(args):
         batchsize=model.config["basecaller"]["batchsize"],
         chunksize=model.config["basecaller"]["chunksize"],
         overlap=model.config["basecaller"]["overlap"],
-        beamsize=1,
-        qscores=True
     )
 
-    results = ((k,extend_mm_ml_tag(k,v,model))for k,v in results)
-    if mods_model is not None:
-        if args.modified_device:
-            results = ((k, call_mods(mods_model, k, v)) for k, v in results)
-        else:
-            results = process_itemmap(
-                partial(call_mods, mods_model), results, n_proc=args.modified_procs
-            )
+    results = ((k,extend_mm_ml_tag(k,v))for k,v in results)
+    # if mods_model is not None:
+    #     if args.modified_device:
+    #         results = ((k, call_mods(mods_model, k, v)) for k, v in results)
+    #     else:
+    #         results = process_itemmap(
+    #             partial(call_mods, mods_model), results, n_proc=args.modified_procs
+    #         )
     if aligner:
         results = align_map(aligner, results, n_thread=args.alignment_threads)
 
@@ -215,21 +213,22 @@ def argparser():
     parser.add_argument("--overlap", default=None, type=int)
     parser.add_argument("--chunksize", default=None, type=int)
     parser.add_argument("--batchsize", default=None, type=int)
-    parser.add_argument("--max-reads", default=5, type=int)
+    parser.add_argument("--max-reads", default=500, type=int)
     parser.add_argument("--alignment-threads", default=4, type=int)
     parser.add_argument('-v', '--verbose', action='count', default=0)
     return parser
 
-def extend_mm_ml_tag(read,read_attrs,model):
-    scores = model(torch.tensor(read.signal).reshape(-1,1,1))
-    probs = softmax_axis1(scores.reshape(-1,scores.shape[2]).detach().numpy())[:, 1:].astype(np.float64)
+def extend_mm_ml_tag(read,read_attrs,model = None):
+    # scores = model(torch.tensor(read.signal).reshape(-1,1,1))
+    # probs = softmax_axis1(scores.reshape(-1,scores.shape[2]).detach().numpy())[:, 1:].astype(np.float64)
     mod_idx = [substr.start() for substr in re.finditer("M" , read_attrs['sequence'])]
-    mm,ml = format_mm_ml_tags(read_attrs['sequence'],mod_idx,probs,"M","C")
+    mm,ml = format_mm_tags(read_attrs['sequence'],mod_idx,"M","C")
+    
     read_attrs['mods'] =[
         f"MM:Z:{mm}",
-        f"ML:B:C,{','.join(map(str, ml))}"
+        f"ML:{ml}"
     ]
-    return read_attrs
+    return read_attrs 
 
 def format_mm_ml_tags(seq, poss, probs, mod_bases, can_base):
     """Format MM and ML tags for BAM output. See
@@ -283,5 +282,45 @@ def format_mm_ml_tags(seq, poss, probs, mod_bases, can_base):
         ml_tag.extend(scaled_probs.astype(np.uint8))
 
     return mm_tag, ml_tag
+
+
+def format_mm_tags(seq, poss, mod_base, can_base):
+    """Format MM and ML tags for BAM output. See
+    https://samtools.github.io/hts-specs/SAMtags.pdf for format details.
+
+    Args:
+        seq (str): read-centric read sequence. For reference-anchored calls
+            this should be the reverse complement sequence.
+        poss (list): positions relative to seq
+        probs (np.array): probabilties for modified bases
+        mod_bases (str): modified base single letter codes
+        can_base (str): canonical base
+
+    Returns:
+        MM string tag and ML array tag
+    """
+
+
+    mm_tag, ml_tag = "", array.array("B")
+
+    # compute modified base positions relative to the running total of the
+    # associated canonical base
+    if(len(poss)==0):
+        return f"{can_base}+{mod_base}?;"
+    can_base_mod_poss = (
+        np.cumsum([1 if b == can_base else 0 for b in seq])[
+            np.array(poss)
+        ]
+        - 1
+    )
+    mod_gaps = ",".join(
+        map(str, np.diff(np.insert(can_base_mod_poss, 0, -1)) - 1)
+    )
+    mm_tag += f"{can_base}+{mod_base}?,{mod_gaps};"
+    # extract mod scores and scale to 0-255 range
+    for _ in range(len(poss)):
+        ml_tag.extend(255)
+
+    return mm_tag,ml_tag
 
 main(argparser().parse_args())

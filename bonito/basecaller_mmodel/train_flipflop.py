@@ -708,7 +708,7 @@ def gen_batch(dir, limit = None, args = None):
     # We choose the size of a sub-batch so that the size of the data in
     # the sub-batch is about the same as args.min_sub_batch_size chunks of
     # length args.chunk_len_max
-    sub_batch_size = 22
+    sub_batch_size = 100
     main_batch_gen = prepare_random_batches(
             read_data, batch_chunk_len, sub_batch_size,
             10, alphabet_info, filter_params)

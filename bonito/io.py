@@ -506,7 +506,7 @@ class CTCWriter(Thread):
                 qstring = ctc_data['qstring']
                 mean_qscore = ctc_data.get('mean_qscore', mean_qscore_from_qstring(qstring))
                 mapping = ctc_data.get('mapping', False)
-
+                mods_tags = ctc_data.get('mods', [])
                 self.log.append((read.read_id, len(read.signal)))
 
                 if len(seq) == 0 or mapping is None:
@@ -515,13 +515,21 @@ class CTCWriter(Thread):
                 cov = (mapping.q_en - mapping.q_st) / len(seq)
                 acc = mapping.mlen / mapping.blen
                 refseq = self.aligner.seq(mapping.ctg, mapping.r_st, mapping.r_en)
-
-                if acc < self.min_accuracy or cov < self.min_coverage or 'N' in refseq:
-                    continue
+                
+                tags = [
+                    f'RG:Z:{read.run_id}_{self.group_key}',
+                    f'qs:i:{round(mean_qscore)}',
+                    f'ns:i:{read.num_samples}',
+                    f'ts:i:{read.trimmed_samples}',
+                    *read.tagdata(),
+                    *mods_tags,
+                ]
+                # if acc < self.min_accuracy or cov < self.min_coverage or 'N' in refseq:
+                #     continue
 
                 self.output.write(
                     AlignedSegment.fromstring(
-                        sam_record(read.read_id, seq, qstring, mapping),
+                        sam_record(read.read_id, seq, qstring, mapping,tags=tags),
                         self.output.header
                     )
                 )
@@ -538,24 +546,25 @@ class CTCWriter(Thread):
         if len(chunks) == 0:
             sys.stderr.write("> no suitable ctc data to write\n")
             return
-
-        chunks = np.array(chunks, dtype=np.float16)
-        targets_ = np.zeros((chunks.shape[0], max(lengths)), dtype=np.uint8)
-        for idx, target in enumerate(targets): targets_[idx, :len(target)] = target
-        lengths = np.array(lengths, dtype=np.uint16)
-        indices = np.random.permutation(typical_indices(lengths))
-
-        chunks = chunks[indices]
-        targets_ = targets_[indices]
-        lengths = lengths[indices]
-
         summary = pd.read_csv(summary_file(), sep='\t')
-        summary.iloc[indices].to_csv(summary_file(), sep='\t', index=False)
+        summary.to_csv(summary_file(), sep='\t', index=False)
+        # chunks = np.array(chunks, dtype=np.float16)
+        # targets_ = np.zeros((chunks.shape[0], max(lengths)), dtype=np.uint8)
+        # for idx, target in enumerate(targets): targets_[idx, :len(target)] = target
+        # lengths = np.array(lengths, dtype=np.uint16)
+        # indices = np.random.permutation(typical_indices(lengths))
 
-        output_directory = '.' if sys.stdout.isatty() else dirname(realpath('/dev/fd/1'))
-        np.save(os.path.join(output_directory, "chunks.npy"), chunks)
-        np.save(os.path.join(output_directory, "references.npy"), targets_)
-        np.save(os.path.join(output_directory, "reference_lengths.npy"), lengths)
+        # chunks = chunks[indices]
+        # targets_ = targets_[indices]
+        # lengths = lengths[indices]
+
+        # summary = pd.read_csv(summary_file(), sep='\t')
+        # summary.iloc[indices].to_csv(summary_file(), sep='\t', index=False)
+
+        # output_directory = '.' if sys.stdout.isatty() else dirname(realpath('/dev/fd/1'))
+        # np.save(os.path.join(output_directory, "chunks.npy"), chunks)
+        # np.save(os.path.join(output_directory, "references.npy"), targets_)
+        # np.save(os.path.join(output_directory, "reference_lengths.npy"), lengths)
 
         sys.stderr.write("> written ctc training data\n")
         sys.stderr.write("  - chunks.npy with shape (%s)\n" % ','.join(map(str, chunks.shape)))

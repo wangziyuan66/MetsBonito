@@ -4,6 +4,7 @@ Bonito Model template
 
 from pickletools import optimize
 import numpy as np
+from random import shuffle
 
 from torch import  nn, optim
 from bonito.nn import Permute, layers
@@ -25,7 +26,7 @@ from bonito.reader import Reader
 
 from train_flipflop import gen_batch
 from _bin_argparse import get_train_flipflop_parser
-from early_stop import EarlyStopffping
+from early_stop import EarlyStopping
 
 class Decoder(Module):
     """
@@ -101,12 +102,17 @@ def generate_dataset(dir):
     return batch_tensor, seqref, seqlen
 
 losses,classification_losses,reg_loss,test_losses,canonical_losses,validation_losses = [],[],[],[],[],[]
-batch_list = gen_batch(dir = "/home/princezwang/nanopore/dataset/dna/train_data/hdf5/mod_1/set1/batch0.hdf5")
-batch_list = list(batch_list)
-train_list,validation_list = batch_list[0:7],batch_list[7:]
+
+merge_list = []
+for i in range(20):
+    batch_list = gen_batch(dir = "/home/princezwang/nanopore/dataset/dna/train_data/hdf5/mod_1/set1/batch"+str(i)+".hdf5")
+    merge_list += list(batch_list)
+
+shuffle(merge_list)
+train_list,validation_list = merge_list[0:int(len(merge_list)*0.7)],merge_list[int(len(merge_list)*0.7):]
 
 # train_batch_tensor,train_seqref,train_seqlen = generate_dataset("/home/princezwang/nanopore/dataset/dna/train_data/hdf5/mod_1/set1/batch0.hdf5")
-test_batch_tensor,test_seqref,test_seqlen = generate_dataset("/home/princezwang/nanopore/dataset/dna/train_data/hdf5/mod_1/set1/batch1.hdf5")
+test_batch_tensor,test_seqref,test_seqlen = generate_dataset("/home/princezwang/nanopore/dataset/dna/train_data/hdf5/mod_1/set1/batch30.hdf5")
 canonical_batch_tensor,canonical_seqref,canonical_seqlen = generate_dataset("/home/princezwang/nanopore/dataset/dna/train_data/hdf5/canonical/set1/batch0.hdf5")
 early_stopping = EarlyStopping(patience=15, verbose=True,path="/home/princezwang/nanopore/results/dna/meta_bonito_dna.pt")
 for i in range(10000):

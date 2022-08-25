@@ -1,102 +1,58 @@
-# This file may be used to create an environment using:
-# $ conda create --name <env> --file <this file>
-# platform: linux-64
-_libgcc_mutex=0.1=main
-_openmp_mutex=5.1=1_gnu
-asttokens=2.0.5=pyhd3eb1b0_0
-backcall=0.2.0=pyhd3eb1b0_0
-biopython=1.76=pypi_0
-ca-certificates=2022.07.19=h06a4308_0
-certifi=2022.6.15=py38h06a4308_0
-cffi=1.15.1=pypi_0
-chardet=4.0.0=pypi_0
-cycler=0.11.0=pypi_0
-cython=0.29.30=py38h6a678d5_0
-debugpy=1.5.1=py38h295c915_0
-decorator=5.1.1=pyhd3eb1b0_0
-entrypoints=0.4=py38h06a4308_0
-executing=0.8.3=pyhd3eb1b0_0
-fast-ctc-decode=0.3.2=pypi_0
-flatbuffers=2.0=pypi_0
-fonttools=4.34.4=pypi_0
-h5py=3.7.0=pypi_0
-idna=2.10=pypi_0
-ipykernel=6.9.1=py38h06a4308_0
-ipython=8.4.0=py38h06a4308_0
-iso8601=1.0.2=pypi_0
-jedi=0.18.1=py38h06a4308_1
-joblib=1.1.0=pypi_0
-jupyter_client=7.2.2=py38h06a4308_0
-jupyter_core=4.10.0=py38h06a4308_0
-kiwisolver=1.4.4=pypi_0
-ld_impl_linux-64=2.38=h1181459_1
-libffi=3.3=he6710b0_2
-libgcc-ng=11.2.0=h1234567_1
-libgomp=11.2.0=h1234567_1
-libsodium=1.0.18=h7b6447c_0
-libstdcxx-ng=11.2.0=h1234567_1
-mappy=2.24=pypi_0
-matplotlib=3.5.2=pypi_0
-matplotlib-inline=0.1.2=pyhd3eb1b0_2
-more-itertools=8.13.0=pypi_0
-ncurses=6.3=h5eee18b_3
-nest-asyncio=1.5.5=py38h06a4308_0
-numpy=1.21.6=pypi_0
-onnx=1.12.0=pypi_0
-onnxruntime=1.11.0=pypi_0
-ont-bonito=0.5.3=dev_0
-ont-fast5-api=3.3.0=pypi_0
-ont-koi=0.1.0=pypi_0
-ont-remora=1.1.1=pypi_0
-openssl=1.1.1q=h7f8727e_0
-packaging=21.3=pypi_0
-pandas=1.4.3=pypi_0
-parasail=1.2=pypi_0
-parso=0.8.3=pyhd3eb1b0_0
-patsy=0.5.2=pypi_0
-pexpect=4.8.0=pyhd3eb1b0_3
-pickleshare=0.7.5=pyhd3eb1b0_1003
-pillow=9.2.0=pypi_0
-pip=21.2.4=py38h06a4308_0
-pod5-format=0.0.14=pypi_0
-pod5-format-tools=0.0.14=pypi_0
-progressbar33=2.4=pypi_0
-prompt-toolkit=3.0.20=pyhd3eb1b0_0
-protobuf=3.20.1=pypi_0
-ptyprocess=0.7.0=pyhd3eb1b0_2
-pure_eval=0.2.2=pyhd3eb1b0_0
-pyarrow=7.0.0=pypi_0
-pycparser=2.21=pypi_0
-pygments=2.11.2=pyhd3eb1b0_0
-pyparsing=3.0.9=pypi_0
-pysam=0.18.0=pypi_0
-python=3.8.10=h12debd9_8
-python-dateutil=2.8.2=pyhd3eb1b0_0
-pytz=2022.1=pypi_0
-pyzmq=23.2.0=py38h6a678d5_0
-readline=8.1.2=h7f8727e_1
-requests=2.25.1=pypi_0
-scikit-learn=1.1.1=pypi_0
-scipy=1.5.1=pypi_0
-setuptools=61.2.0=py38h06a4308_0
-six=1.16.0=pyhd3eb1b0_1
-sqlite=3.38.5=hc218d9a_0
-stack_data=0.2.0=pyhd3eb1b0_0
-statsmodels=0.13.2=pypi_0
-tabulate=0.8.10=pypi_0
-taiyaki=5.3.0=pypi_0
-thop=0.1.0-2207010342=pypi_0
-threadpoolctl=3.1.0=pypi_0
-tk=8.6.12=h1ccaba5_0
-toml=0.10.2=pypi_0
-torch=1.12.0=pypi_0
-tornado=6.1=py38h27cfd23_0
-tqdm=4.64.0=pypi_0
-traitlets=5.1.1=pyhd3eb1b0_0
-typing-extensions=4.3.0=pypi_0
-urllib3=1.26.10=pypi_0
-wcwidth=0.2.5=pyhd3eb1b0_0
-wheel=0.37.1=pypi_0
-xz=5.2.5=h7f8727e_1
-zeromq=4.3.4=h2531618_0
-zlib=1.2.12=h7f8727e_2
+2022-07-08 09:38:54  (rev 0)
+    +_libgcc_mutex-0.1 (defaults/linux-64)
+    +_openmp_mutex-5.1 (defaults/linux-64)
+    +ca-certificates-2022.4.26 (defaults/linux-64)
+    +certifi-2022.6.15 (defaults/linux-64)
+    +ld_impl_linux-64-2.38 (defaults/linux-64)
+    +libffi-3.3 (defaults/linux-64)
+    +libgcc-ng-11.2.0 (defaults/linux-64)
+    +libgomp-11.2.0 (defaults/linux-64)
+    +libstdcxx-ng-11.2.0 (defaults/linux-64)
+    +ncurses-6.3 (defaults/linux-64)
+    +openssl-1.1.1p (defaults/linux-64)
+    +pip-21.2.4 (defaults/linux-64)
+    +python-3.8.10 (defaults/linux-64)
+    +readline-8.1.2 (defaults/linux-64)
+    +setuptools-61.2.0 (defaults/linux-64)
+    +sqlite-3.38.5 (defaults/linux-64)
+    +tk-8.6.12 (defaults/linux-64)
+    +wheel-0.37.1 (defaults/noarch)
+    +xz-5.2.5 (defaults/linux-64)
+    +zlib-1.2.12 (defaults/linux-64)
+
+2022-08-10 14:13:48  (rev 1)
+     ca-certificates  {2022.4.26 (defaults/linux-64) -> 2022.07.19 (defaults/linux-64)}
+     openssl  {1.1.1p (defaults/linux-64) -> 1.1.1q (defaults/linux-64)}
+    +cython-0.29.30 (defaults/linux-64)
+
+2022-08-13 13:19:11  (rev 2)
+    +asttokens-2.0.5 (defaults/noarch)
+    +backcall-0.2.0 (defaults/noarch)
+    +debugpy-1.5.1 (defaults/linux-64)
+    +decorator-5.1.1 (defaults/noarch)
+    +entrypoints-0.4 (defaults/linux-64)
+    +executing-0.8.3 (defaults/noarch)
+    +ipykernel-6.9.1 (defaults/linux-64)
+    +ipython-8.4.0 (defaults/linux-64)
+    +jedi-0.18.1 (defaults/linux-64)
+    +jupyter_client-7.2.2 (defaults/linux-64)
+    +jupyter_core-4.10.0 (defaults/linux-64)
+    +libsodium-1.0.18 (defaults/linux-64)
+    +matplotlib-inline-0.1.2 (defaults/noarch)
+    +nest-asyncio-1.5.5 (defaults/linux-64)
+    +parso-0.8.3 (defaults/noarch)
+    +pexpect-4.8.0 (defaults/noarch)
+    +pickleshare-0.7.5 (defaults/noarch)
+    +prompt-toolkit-3.0.20 (defaults/noarch)
+    +ptyprocess-0.7.0 (defaults/noarch)
+    +pure_eval-0.2.2 (defaults/noarch)
+    +pygments-2.11.2 (defaults/noarch)
+    +python-dateutil-2.8.2 (defaults/noarch)
+    +pyzmq-23.2.0 (defaults/linux-64)
+    +six-1.16.0 (defaults/noarch)
+    +stack_data-0.2.0 (defaults/noarch)
+    +tornado-6.1 (defaults/linux-64)
+    +traitlets-5.1.1 (defaults/noarch)
+    +wcwidth-0.2.5 (defaults/noarch)
+    +zeromq-4.3.4 (defaults/linux-64)
+

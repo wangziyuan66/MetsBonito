@@ -58,7 +58,7 @@ class Model(Module):
         label_smoothing_loss = -((log_probs * weights.to(log_probs.device)).mean())
         dirname = "/home/princezwang/software/bonito/bonito/models/dna_r9.4.1@v2"
         regularization = self.model_weight_regularization_loss(model = load_model(dirname, 'cpu'))
-        return {'total_loss': loss + label_smoothing_loss+regularization*5, 'loss': loss, 'label_smooth_loss': label_smoothing_loss, "Regularization_loss" : regularization*5}
+        return {'total_loss': loss + label_smoothing_loss+regularization, 'loss': loss, 'label_smooth_loss': label_smoothing_loss, "Regularization_loss" : regularization}
 
     def loss(self, log_probs, targets, lengths):
         return self.ctc_label_smoothing_loss(self, log_probs, targets, lengths)
