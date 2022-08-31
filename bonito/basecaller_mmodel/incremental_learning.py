@@ -54,6 +54,7 @@ def train_one_epoch(model,batch_list):
     for train_batch_tensor,train_seqref,train_seqlen,_,_,_ in batch_list:
         scores = model(permute(train_batch_tensor,[0,1,2],[1,2,0]) )
         loss = model.ctc_label_smoothing_loss(scores, train_seqref, train_seqlen)
+        seq = model.decode(scores)
         loss_total ['total_loss'] += loss['total_loss']
         loss_total ['label_smooth_loss'] += loss['label_smooth_loss']
         loss_total ['loss'] += loss['loss']
@@ -104,7 +105,7 @@ def generate_dataset(dir):
 losses,classification_losses,reg_loss,test_losses,canonical_losses,validation_losses = [],[],[],[],[],[]
 
 merge_list = []
-for i in range(20):
+for i in range(1):
     batch_list = gen_batch(dir = "/home/princezwang/nanopore/dataset/dna/train_data/hdf5/mod_1/set1/batch"+str(i)+".hdf5")
     merge_list += list(batch_list)
 

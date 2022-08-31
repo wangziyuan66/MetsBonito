@@ -529,7 +529,7 @@ class CTCWriter(Thread):
 
                 self.output.write(
                     AlignedSegment.fromstring(
-                        sam_record(read.read_id, seq, qstring, mapping,tags=tags),
+                        sam_record(read.read_id, seq.replace("m","C"), qstring, mapping,tags=tags),
                         self.output.header
                     )
                 )
@@ -538,14 +538,14 @@ class CTCWriter(Thread):
                 if mapping.strand == -1:
                     refseq = mappy.revcomp(refseq)
 
-                target = [int(x) for x in refseq.translate({65: '1', 67: '2', 71: '3', 84: '4'})]
-                targets.append(target)
-                chunks.append(read.signal)
-                lengths.append(len(target))
+                # target = [int(x) for x in refseq.translate({65: '1', 67: '2', 71: '3', 84: '4'})]
+                # targets.append(target)
+                # chunks.append(read.signal)
+                # lengths.append(len(target))
 
-        if len(chunks) == 0:
-            sys.stderr.write("> no suitable ctc data to write\n")
-            return
+        # if len(chunks) == 0:
+        #     sys.stderr.write("> no suitable ctc data to write\n")
+        #     return
         summary = pd.read_csv(summary_file(), sep='\t')
         summary.to_csv(summary_file(), sep='\t', index=False)
         # chunks = np.array(chunks, dtype=np.float16)
@@ -567,9 +567,9 @@ class CTCWriter(Thread):
         # np.save(os.path.join(output_directory, "reference_lengths.npy"), lengths)
 
         sys.stderr.write("> written ctc training data\n")
-        sys.stderr.write("  - chunks.npy with shape (%s)\n" % ','.join(map(str, chunks.shape)))
-        sys.stderr.write("  - references.npy with shape (%s)\n" % ','.join(map(str, targets_.shape)))
-        sys.stderr.write("  - reference_lengths.npy shape (%s)\n" % ','.join(map(str, lengths.shape)))
+        # sys.stderr.write("  - chunks.npy with shape (%s)\n" % ','.join(map(str, chunks.shape)))
+        # sys.stderr.write("  - references.npy with shape (%s)\n" % ','.join(map(str, targets_.shape)))
+        # sys.stderr.write("  - reference_lengths.npy shape (%s)\n" % ','.join(map(str, lengths.shape)))
 
     def stop(self):
         self.join()

@@ -54,7 +54,7 @@ class Model(Module):
         T, N, C = log_probs.shape
         weights = weights or torch.cat([torch.tensor([0.4]), (0.1 / (C - 1)) * torch.ones(C - 1)])
         log_probs_lengths = torch.full(size=(N, ), fill_value=T, dtype=torch.int64)
-        loss = ctc_loss(log_probs.to(torch.float32), targets, log_probs_lengths, lengths, reduction='mean')
+        loss = ctc_loss(log_probs.to(torch.float32), targets+1, log_probs_lengths, lengths, reduction='mean')
         label_smoothing_loss = -((log_probs * weights.to(log_probs.device)).mean())
         dirname = "/home/princezwang/software/bonito/bonito/models/dna_r9.4.1@v2"
         regularization = self.model_weight_regularization_loss(model = load_model(dirname, 'cpu'))

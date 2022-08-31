@@ -81,7 +81,7 @@ def main(args):
 
     sys.stderr.write(f"> loading model {args.model_directory}\n")
     try:
-        model = torch.load(args.model_directory)
+        model = torch.load(args.model_directory,map_location=torch.device('cpu'))
     except FileNotFoundError:
         sys.stderr.write(f"> error: failed to load {args.model_directory}\n")
         sys.stderr.write(f"> available models:\n")
@@ -211,22 +211,22 @@ def argparser():
     quant_parser.add_argument("--no-quantize", dest="quantize", action="store_false")
     parser.set_defaults(quantize=None)
     parser.add_argument("--overlap", default=None, type=int)
-    parser.add_argument("--chunksize", default=None, type=int)
+    parser.add_argument("--chunksize", default=2000, type=int)
     parser.add_argument("--batchsize", default=None, type=int)
-    parser.add_argument("--max-reads", default=500, type=int)
-    parser.add_argument("--alignment-threads", default=4, type=int)
+    parser.add_argument("--max-reads", default=100, type=int)
+    parser.add_argument("--alignment-threads", default=8, type=int)
     parser.add_argument('-v', '--verbose', action='count', default=0)
     return parser
 
 def extend_mm_ml_tag(read,read_attrs,model = None):
     # scores = model(torch.tensor(read.signal).reshape(-1,1,1))
     # probs = softmax_axis1(scores.reshape(-1,scores.shape[2]).detach().numpy())[:, 1:].astype(np.float64)
-    mod_idx = [substr.start() for substr in re.finditer("M" , read_attrs['sequence'])]
-    mm,ml = format_mm_tags(read_attrs['sequence'],mod_idx,"M","C")
+    mod_idx = [substr.start() for substr in re.finditer("m" , read_attrs['sequence'])]
+    mm,ml = format_mm_tags(read_attrs['sequence'],mod_idx,"m","C")
     
     read_attrs['mods'] =[
-        f"MM:Z:{mm}",
-        f"ML:{ml}"
+        f"Mm:Z:{mm}",
+        f"Ml:B:C,{','.join(map(str, ml))}"
     ]
     return read_attrs 
 
@@ -306,20 +306,20 @@ def format_mm_tags(seq, poss, mod_base, can_base):
     # compute modified base positions relative to the running total of the
     # associated canonical base
     if(len(poss)==0):
-        return f"{can_base}+{mod_base}?;"
+        return f"{can_base}+{mod_base};",ml_tag
     can_base_mod_poss = (
-        np.cumsum([1 if b == can_base else 0 for b in seq])[
+        np.cumsum([1 if b == can_base else 0 for b in seq.replace("m","C")])[
             np.array(poss)
         ]
         - 1
     )
     mod_gaps = ",".join(
-        map(str, np.diff(np.insert(can_base_mod_poss, 0, -1)) - 1)
+        map(str, np.diff(np.insert(can_base_mod_poss, 0, -1)) -1)
     )
-    mm_tag += f"{can_base}+{mod_base}?,{mod_gaps};"
+    mm_tag += f"{can_base}+{mod_base},{mod_gaps};"
     # extract mod scores and scale to 0-255 range
     for _ in range(len(poss)):
-        ml_tag.extend(255)
+        ml_tag.extend([255])
 
     return mm_tag,ml_tag
 
