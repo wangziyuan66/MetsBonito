@@ -52,6 +52,7 @@ def main(args):
 
     sys.stderr.write(f"> loading model {args.model_directory}\n")
     try:
+<<<<<<< HEAD
         # model = load_model(
         #     args.model_directory,
         #     args.device,
@@ -63,6 +64,9 @@ def main(args):
         #     use_koi=True,
         # )
         model = torch.load(args.model_directory,map_location=torch.device('cuda'))
+=======
+        model = torch.load(args.model_directory,map_location=torch.device('cpu'))
+>>>>>>> afe0c8c0a7e5d542347a053af710b8e923ed8238
     except FileNotFoundError:
         sys.stderr.write(f"> error: failed to load {args.model_directory}\n")
         sys.stderr.write(f"> available models:\n")
@@ -191,9 +195,15 @@ def argparser():
     quant_parser.add_argument("--no-quantize", dest="quantize", action="store_false")
     parser.set_defaults(quantize=None)
     parser.add_argument("--overlap", default=None, type=int)
+<<<<<<< HEAD
     parser.add_argument("--chunksize", default=4000, type=int)
     parser.add_argument("--batchsize", default=None, type=int)
     parser.add_argument("--max-reads", default=200, type=int)
+=======
+    parser.add_argument("--chunksize", default=2000, type=int)
+    parser.add_argument("--batchsize", default=None, type=int)
+    parser.add_argument("--max-reads", default=100, type=int)
+>>>>>>> afe0c8c0a7e5d542347a053af710b8e923ed8238
     parser.add_argument("--alignment-threads", default=8, type=int)
     parser.add_argument('-v', '--verbose', action='count', default=0)
     return parser
@@ -201,6 +211,7 @@ def argparser():
 def extend_mm_ml_tag(read,read_attrs,model = None):
     # scores = model(torch.tensor(read.signal).reshape(-1,1,1))
     # probs = softmax_axis1(scores.reshape(-1,scores.shape[2]).detach().numpy())[:, 1:].astype(np.float64)
+<<<<<<< HEAD
     mod_types = ["m","h"]
     can_types = ["C","C"]
     mm = ""
@@ -213,6 +224,11 @@ def extend_mm_ml_tag(read,read_attrs,model = None):
         tmp = format_mm_tags(tmp_seq,mod_idx,mod_types[i],can_types[i])
         mm += tmp[0]; ml += tmp[1]
 
+=======
+    mod_idx = [substr.start() for substr in re.finditer("m" , read_attrs['sequence'])]
+    mm,ml = format_mm_tags(read_attrs['sequence'],mod_idx,"m","C")
+    
+>>>>>>> afe0c8c0a7e5d542347a053af710b8e923ed8238
     read_attrs['mods'] =[
         f"Mm:Z:{mm}",
         f"Ml:B:C,{','.join(map(str, ml))}"
@@ -243,7 +259,11 @@ def format_mm_tags(seq, poss, mod_base, can_base):
     if(len(poss)==0):
         return f"{can_base}+{mod_base};",ml_tag
     can_base_mod_poss = (
+<<<<<<< HEAD
         np.cumsum([1 if b == can_base else 0 for b in seq.replace(mod_base,can_base)])[
+=======
+        np.cumsum([1 if b == can_base else 0 for b in seq.replace("m","C")])[
+>>>>>>> afe0c8c0a7e5d542347a053af710b8e923ed8238
             np.array(poss)
         ]
         - 1

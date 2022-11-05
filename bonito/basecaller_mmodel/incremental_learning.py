@@ -69,6 +69,7 @@ def train_one_epoch(model,batch_list):
         train_batch_tensor,train_seqref,train_seqlen = train_batch_tensor.to(device),train_seqref.to(device),train_seqlen.to(device)
         scores = model(permute(train_batch_tensor,[0,1,2],[1,2,0]) )
         loss = model.ctc_label_smoothing_loss(scores, train_seqref, train_seqlen)
+        seq = model.decode(scores)
         loss_total ['total_loss'] += loss['total_loss']
         loss_total ['label_smooth_loss'] += loss['label_smooth_loss']
         loss_total ['loss'] += loss['loss']
@@ -95,6 +96,7 @@ def generate_dataset(dir):
     batch_tensor, seqref, seqlen = batch_list[0][0],batch_list[0][1],batch_list[0][2]
     return batch_tensor, seqref, seqlen
 
+<<<<<<< HEAD
 def argparser():
     parser = ArgumentParser(
         formatter_class=ArgumentDefaultsHelpFormatter,
@@ -147,6 +149,13 @@ def main(args):
     merge_list = []
     i = 11
     batch_list = gen_batch(dir = "/xdisk/hongxuding/dinglab/nanopore_working_group/dna/train_data/hdf5/mod_1/set1/batch"+str(i)+".hdf5")
+=======
+losses,classification_losses,reg_loss,test_losses,canonical_losses,validation_losses = [],[],[],[],[],[]
+
+merge_list = []
+for i in range(1):
+    batch_list = gen_batch(dir = "/home/princezwang/nanopore/dataset/dna/train_data/hdf5/mod_1/set1/batch"+str(i)+".hdf5")
+>>>>>>> afe0c8c0a7e5d542347a053af710b8e923ed8238
     merge_list += list(batch_list)
 
     shuffle(merge_list)

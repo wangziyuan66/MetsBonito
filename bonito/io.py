@@ -544,15 +544,23 @@ class CTCWriter(Thread):
                 if mapping.strand == -1:
                     refseq = mappy.revcomp(refseq)
 
-                target = [int(x) for x in refseq.translate({65: '1', 67: '2', 71: '3', 84: '4'})]
-                targets.append(target)
-                chunks.append(read.signal)
-                lengths.append(len(target))
+                # target = [int(x) for x in refseq.translate({65: '1', 67: '2', 71: '3', 84: '4'})]
+                # targets.append(target)
+                # chunks.append(read.signal)
+                # lengths.append(len(target))
 
+<<<<<<< HEAD
         if len(chunks) == 0:
             sys.stderr.write("> no suitable ctc data to write\n")
             return
 
+=======
+        # if len(chunks) == 0:
+        #     sys.stderr.write("> no suitable ctc data to write\n")
+        #     return
+        summary = pd.read_csv(summary_file(), sep='\t')
+        summary.to_csv(summary_file(), sep='\t', index=False)
+>>>>>>> afe0c8c0a7e5d542347a053af710b8e923ed8238
         # chunks = np.array(chunks, dtype=np.float16)
         # targets_ = np.zeros((chunks.shape[0], max(lengths)), dtype=np.uint8)
         # for idx, target in enumerate(targets): targets_[idx, :len(target)] = target
