@@ -52,5 +52,5 @@ class MappyWorker(Thread):
                 self.output_queue.put(item)
                 break
             k, v = item
-            mapping = next(self.aligner.map(v['sequence'].replace("M", "C"), buf=thrbuf.buffer, MD=True), None)
+            mapping = next(self.aligner.map(v['sequence'].replace("m", "C").replace("h", "C"), buf=thrbuf.buffer, MD=True), None)
             self.output_queue.put((k, {**v, 'mapping': mapping}))

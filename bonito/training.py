@@ -79,7 +79,7 @@ class Trainer:
         self.device = device
         self.train_loader = train_loader
         self.valid_loader = valid_loader
-        self.criterion = criterion or model.loss
+        self.criterion = criterion or model.ctc_label_smoothing_loss
         self.use_amp = use_amp
         self.lr_scheduler_fn = lr_scheduler_fn or linear_warmup_cosine_decay()
         self.restore_optim = restore_optim
@@ -96,11 +96,11 @@ class Trainer:
             for data_, targets_, lengths_ in zip(*map(lambda t: t.chunk(self.grad_accum_split, dim=0), batch)):
                 data_, targets_, lengths_ = data_.to(self.device), targets_.to(self.device), lengths_.to(self.device)
                 scores_ = self.model(data_)
+                ks_loss = self.model.decoder.calculate_kdloss(self.model.encoder(data_))*1e-5
                 losses_ = self.criterion(scores_, targets_, lengths_)
 
                 if not isinstance(losses_, dict): losses_ = {'loss': losses_}
-
-                total_loss = losses_.get('total_loss', losses_['loss']) / self.grad_accum_split
+                total_loss = (losses_.get('total_loss', losses_['loss']) + ks_loss)/ self.grad_accum_split
                 self.scaler.scale(total_loss).backward()
 
                 losses = {
@@ -134,7 +134,7 @@ class Trainer:
 
                 losses, grad_norm = self.train_one_step(batch)
 
-                smoothed_loss = losses['loss'] if smoothed_loss is None else (0.01 * losses['loss'] + 0.99 * smoothed_loss)
+                smoothed_loss = losses['total_loss'] if smoothed_loss is None else (0.01 * losses['loss'] + 0.99 * smoothed_loss)
 
                 progress_bar.set_postfix(loss='%.4f' % smoothed_loss)
                 progress_bar.set_description("[{}/{}]".format(chunks, len(self.train_loader.sampler)))
@@ -160,12 +160,14 @@ class Trainer:
 
         scores = self.model(data.to(self.device))
         losses = self.criterion(scores, targets.to(self.device), lengths.to(self.device))
+        # losses['kd_loss'] =  3e-3*self.model.decoder.calculate_kdloss(self.model.encoder(data.to(self.device)))
+        losses['total_loss'] += losses['kd_loss']
         losses = {k: v.item() for k, v in losses.items()} if isinstance(losses, dict) else losses.item()
         if hasattr(self.model, 'decode_batch'):
             seqs = self.model.decode_batch(scores)
         else:
             seqs = [self.model.decode(x) for x in permute(scores, 'TNC', 'NTC')]
-        refs = [decode_ref(target, self.model.alphabet) for target in targets]
+        refs = [decode_ref(target, ['N','A','C','m','h','G','T']) for target in targets]
         accs = [
             accuracy(ref, seq, min_coverage=0.5) if len(seq) else 0. for ref, seq in zip(refs, seqs)
         ]
@@ -183,10 +185,13 @@ class Trainer:
         if isinstance(lr, (list, tuple)):
             if len(list(self.model.children())) != len(lr):
                 raise ValueError('Number of lrs does not match number of model children')
-            param_groups = [{'params': list(m.parameters()), 'lr': v} for (m, v) in zip(self.model.children(), lr)]
+            param_groups = [{'params': list(m.parameters()), 'lr': v} for (m, v) in zip(self.model.decoder.layers_mod.children(), lr)]
             self.optimizer = torch.optim.AdamW(param_groups, lr=lr[0], **kwargs)
         else:
-            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=lr, **kwargs)
+            self.optimizer = torch.optim.AdamW([
+                        {'params': self.model.encoder.parameters()},
+                        {'params': self.model.decoder.layers.parameters()},
+                        {'params': self.model.decoder.layers_mod.parameters(), 'lr': lr*10}], lr=lr, **kwargs)
 
     def get_lr_scheduler(self, epochs, last_epoch=0):
         return self.lr_scheduler_fn(self.optimizer, self.train_loader, epochs, last_epoch)
@@ -206,15 +211,18 @@ class Trainer:
 
         for epoch in range(1 + last_epoch, epochs + 1):
             try:
+                val_loss, val_mean, val_median = self.validate_one_epoch()
                 with bonito.io.CSVLogger(os.path.join(workdir, 'losses_{}.csv'.format(epoch))) as loss_log:
                     train_loss, duration = self.train_one_epoch(loss_log, lr_scheduler)
 
-                model_state = self.model.module.state_dict() if hasattr(self.model, 'module') else self.model.state_dict()
-                torch.save(model_state, os.path.join(workdir, "weights_%s.tar" % epoch))
+                # model_state = self.model.module.state_dict() if hasattr(self.model, 'module') else self.model.state_dict()
+                # torch.save(model_state, os.path.join(workdir, "weights_%s.tar" % epoch))
+                # torch.save(self.model,os.path.join(workdir, "optim_%s.pt" % epoch))
                 if epoch % self.save_optim_every == 0:
-                    torch.save(self.optimizer.state_dict(), os.path.join(workdir, "optim_%s.tar" % epoch))
+                    # torch.save(self.optimizer.state_dict(), os.path.join(workdir, "optim_%s.tar" % epoch))
+                    torch.save(self.model,os.path.join(workdir, "optim_%s.pt" % epoch))
 
-                val_loss, val_mean, val_median = self.validate_one_epoch()
+                # val_loss, val_mean, val_median = self.validate_one_epoch()
             except KeyboardInterrupt:
                 break
 

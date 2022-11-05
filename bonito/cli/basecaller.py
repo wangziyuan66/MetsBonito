@@ -130,8 +130,8 @@ def main(args):
         chunksize=model.config["basecaller"]["chunksize"],
         overlap=model.config["basecaller"]["overlap"]
     )
-    for itm in results:
-        print(itm)
+
+
     if mods_model is not None:
         if args.modified_device:
             results = ((k, call_mods(mods_model, k, v)) for k, v in results)

@@ -144,7 +144,7 @@ def sam_record(read_id, sequence, qstring, mapping, tags=None, sep='\t'):
             mapping.r_st + 1,
             mapping.mapq,
             ''.join(softclip if mapping.strand == +1 else softclip[::-1]),
-            '*', 0, 0,
+            '*', 0, len(sequence),
             sequence if mapping.strand == +1 else mappy.revcomp(sequence),
             qstring,
             'NM:i:%s' % mapping.NM,
@@ -152,7 +152,7 @@ def sam_record(read_id, sequence, qstring, mapping, tags=None, sep='\t'):
         ]
     else:
         record = [
-            read_id, 4, '*', 0, 0, '*', '*', 0, 0, sequence, qstring, 'NM:i:0'
+            read_id, 4, '*', 0, 0, '*', '*', 0, len(sequence), sequence, qstring, 'NM:i:0'
         ]
 
     if tags is not None:
@@ -394,7 +394,10 @@ class NullWriter(Thread):
 
 class Writer(Thread):
 
-    def __init__(self, mode, iterator, aligner, fd=sys.stdout, duplex=False, ref_fn=None, groups=None, group_key=None):
+    def __init__(
+            self, mode, iterator, aligner, fd=sys.stdout, duplex=False,
+            ref_fn=None, groups=None, group_key=None, min_qscore=0
+    ):
         super().__init__()
         self.fd = fd
         self.log = []
@@ -404,6 +407,7 @@ class Writer(Thread):
         self.iterator = iterator
         self.fastq = mode == 'wfq'
         self.group_key = group_key
+        self.min_qscore = min_qscore
         self.output = AlignmentFile(
             fd, 'w' if self.fastq else self.mode, add_sam_header=not self.fastq,
             reference_filename=ref_fn,
@@ -433,6 +437,11 @@ class Writer(Thread):
                     samples = len(read.signal)
                     read_id = read.read_id
 
+                self.log.append((read_id, samples))
+
+                if mean_qscore < self.min_qscore:
+                    continue
+
                 tags = [
                     f'RG:Z:{read.run_id}_{self.group_key}',
                     f'qs:i:{round(mean_qscore)}',
@@ -451,7 +460,7 @@ class Writer(Thread):
                     else:
                         self.output.write(
                             AlignedSegment.fromstring(
-                                sam_record(read_id, seq, qstring, mapping, tags=tags),
+                                sam_record(read_id, seq.replace("m","C"), qstring, mapping, tags=tags),
                                 self.output.header
                             )
                         )
@@ -459,8 +468,6 @@ class Writer(Thread):
                         summary.append(duplex_summary_row(read[0], read[1], len(seq), mean_qscore, alignment=mapping))
                     else:
                         summary.append(summary_row(read, len(seq), mean_qscore, alignment=mapping))
-
-                    self.log.append((read_id, samples))
 
                 else:
                     logger.warn("> skipping empty sequence %s", read_id)
@@ -472,7 +479,7 @@ class CTCWriter(Thread):
     """
     def __init__(
             self, mode, iterator, aligner, fd=sys.stdout, min_coverage=0.90,
-            min_accuracy=0.99, ref_fn=None, groups=None, group_key=None,
+            min_accuracy=0.99, ref_fn=None, groups=None, group_key=None, min_qscore=None
     ):
         super().__init__()
         self.fd = fd
@@ -515,7 +522,6 @@ class CTCWriter(Thread):
                 cov = (mapping.q_en - mapping.q_st) / len(seq)
                 acc = mapping.mlen / mapping.blen
                 refseq = self.aligner.seq(mapping.ctg, mapping.r_st, mapping.r_en)
-                
                 tags = [
                     f'RG:Z:{read.run_id}_{self.group_key}',
                     f'qs:i:{round(mean_qscore)}',
@@ -529,7 +535,7 @@ class CTCWriter(Thread):
 
                 self.output.write(
                     AlignedSegment.fromstring(
-                        sam_record(read.read_id, seq, qstring, mapping,tags=tags),
+                        sam_record(read.read_id, seq.replace("m","C"), qstring, mapping,tags=tags),
                         self.output.header
                     )
                 )
@@ -546,8 +552,7 @@ class CTCWriter(Thread):
         if len(chunks) == 0:
             sys.stderr.write("> no suitable ctc data to write\n")
             return
-        summary = pd.read_csv(summary_file(), sep='\t')
-        summary.to_csv(summary_file(), sep='\t', index=False)
+
         # chunks = np.array(chunks, dtype=np.float16)
         # targets_ = np.zeros((chunks.shape[0], max(lengths)), dtype=np.uint8)
         # for idx, target in enumerate(targets): targets_[idx, :len(target)] = target
@@ -558,18 +563,18 @@ class CTCWriter(Thread):
         # targets_ = targets_[indices]
         # lengths = lengths[indices]
 
-        # summary = pd.read_csv(summary_file(), sep='\t')
+        summary = pd.read_csv(summary_file(), sep='\t')
         # summary.iloc[indices].to_csv(summary_file(), sep='\t', index=False)
 
-        # output_directory = '.' if sys.stdout.isatty() else dirname(realpath('/dev/fd/1'))
+        output_directory = '.' if sys.stdout.isatty() else dirname(realpath('/dev/fd/1'))
         # np.save(os.path.join(output_directory, "chunks.npy"), chunks)
         # np.save(os.path.join(output_directory, "references.npy"), targets_)
         # np.save(os.path.join(output_directory, "reference_lengths.npy"), lengths)
 
         sys.stderr.write("> written ctc training data\n")
-        sys.stderr.write("  - chunks.npy with shape (%s)\n" % ','.join(map(str, chunks.shape)))
-        sys.stderr.write("  - references.npy with shape (%s)\n" % ','.join(map(str, targets_.shape)))
-        sys.stderr.write("  - reference_lengths.npy shape (%s)\n" % ','.join(map(str, lengths.shape)))
+        # sys.stderr.write("  - chunks.npy with shape (%s)\n" % ','.join(map(str, chunks.shape)))
+        # sys.stderr.write("  - references.npy with shape (%s)\n" % ','.join(map(str, targets_.shape)))
+        # sys.stderr.write("  - reference_lengths.npy shape (%s)\n" % ','.join(map(str, lengths.shape)))
 
     def stop(self):
         self.join()

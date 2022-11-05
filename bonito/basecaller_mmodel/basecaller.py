@@ -2,7 +2,6 @@
 Bonito Basecaller
 """
 
-from asyncio.trsock import TransportSocket
 import os
 import sys
 import numpy as np
@@ -12,8 +11,6 @@ from functools import partial
 from datetime import timedelta
 from itertools import islice as take
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-import array
-import re
 
 from bonito.aligner import align_map, Aligner
 from bonito.reader import read_chunks, Reader
@@ -22,37 +19,11 @@ from bonito.mod_util import call_mods, load_mods_model
 from bonito.cli.download import File, models, __models__
 from bonito.multiprocessing import process_cancel, process_itemmap
 from bonito.util import column_to_set, load_symbol, load_model, init
-from bonito.ctc import basecall
 
 import torch
-from torch import  nn, optim
-from bonito.nn import Permute, layers
-import torch
-from torch.nn.functional import log_softmax, ctc_loss
-from torch.nn import Module, ModuleList, Sequential, Conv1d, BatchNorm1d, Dropout
+import array
+import re
 
-
-from remora.util import format_mm_ml_tags,softmax_axis1
-
-class Decoder(Module):
-    """
-    Decoder
-    """
-    def __init__(self, features, classes):
-        super(Decoder, self).__init__()
-        self.layers = Sequential(
-            Conv1d(features, classes, kernel_size=1, bias=True),
-            Permute([2, 0, 1])
-        )
-
-    def forward(self, x):
-        return log_softmax(self.layers(x), dim=-1)
-
-def decode_ref(encoded, labels):
-    """
-    Convert a integer encoded reference into a string and remove blanks
-    """
-    return ''.join(labels[e] for e in encoded.tolist() if e)
 
 def main(args):
 
@@ -81,7 +52,17 @@ def main(args):
 
     sys.stderr.write(f"> loading model {args.model_directory}\n")
     try:
-        model = torch.load(args.model_directory)
+        # model = load_model(
+        #     args.model_directory,
+        #     args.device,
+        #     weights=args.weights if args.weights > 0 else None,
+        #     chunksize=args.chunksize,
+        #     overlap=args.overlap,
+        #     batchsize=args.batchsize,
+        #     quantize=args.quantize,
+        #     use_koi=True,
+        # )
+        model = torch.load(args.model_directory,map_location=torch.device('cuda'))
     except FileNotFoundError:
         sys.stderr.write(f"> error: failed to load {args.model_directory}\n")
         sys.stderr.write(f"> available models:\n")
@@ -91,16 +72,16 @@ def main(args):
     if args.verbose:
         sys.stderr.write(f"> model basecaller params: {model.config['basecaller']}\n")
 
-    # basecall = load_symbol(args.model_directory, "basecall")
+    basecall = load_symbol(args.model_directory, "basecall")
 
     mods_model = None
-    # if args.modified_base_model is not None or args.modified_bases is not None:
-    #     sys.stderr.write("> loading modified base model\n")
-    #     mods_model = load_mods_model(
-    #         args.modified_bases, args.model_directory, args.modified_base_model,
-    #         device=args.modified_device,
-    #     )
-    #     sys.stderr.write(f"> {mods_model[1]['alphabet_str']}\n")
+    if args.modified_base_model is not None or args.modified_bases is not None:
+        sys.stderr.write("> loading modified base model\n")
+        mods_model = load_mods_model(
+            args.modified_bases, args.model_directory, args.modified_base_model,
+            device=args.modified_device,
+        )
+        sys.stderr.write(f"> {mods_model[1]['alphabet_str']}\n")
 
     if args.reference:
         sys.stderr.write("> loading reference\n")
@@ -147,23 +128,22 @@ def main(args):
         ResultsWriter = CTCWriter
     else:
         ResultsWriter = CTCWriter
-    
 
     results = basecall(
         model, reads, reverse=args.revcomp,
         batchsize=model.config["basecaller"]["batchsize"],
-        chunksize=model.config["basecaller"]["chunksize"],
-        overlap=model.config["basecaller"]["overlap"],
+        chunksize=4000,
+        overlap=50
     )
-
+    
     results = ((k,extend_mm_ml_tag(k,v))for k,v in results)
-    # if mods_model is not None:
-    #     if args.modified_device:
-    #         results = ((k, call_mods(mods_model, k, v)) for k, v in results)
-    #     else:
-    #         results = process_itemmap(
-    #             partial(call_mods, mods_model), results, n_proc=args.modified_procs
-    #         )
+    if mods_model is not None:
+        if args.modified_device:
+            results = ((k, call_mods(mods_model, k, v)) for k, v in results)
+        else:
+            results = process_itemmap(
+                partial(call_mods, mods_model), results, n_proc=args.modified_procs
+            )
     if aligner:
         results = align_map(aligner, results, n_thread=args.alignment_threads)
 
@@ -211,78 +191,33 @@ def argparser():
     quant_parser.add_argument("--no-quantize", dest="quantize", action="store_false")
     parser.set_defaults(quantize=None)
     parser.add_argument("--overlap", default=None, type=int)
-    parser.add_argument("--chunksize", default=None, type=int)
+    parser.add_argument("--chunksize", default=4000, type=int)
     parser.add_argument("--batchsize", default=None, type=int)
-    parser.add_argument("--max-reads", default=500, type=int)
-    parser.add_argument("--alignment-threads", default=4, type=int)
+    parser.add_argument("--max-reads", default=200, type=int)
+    parser.add_argument("--alignment-threads", default=8, type=int)
     parser.add_argument('-v', '--verbose', action='count', default=0)
     return parser
 
 def extend_mm_ml_tag(read,read_attrs,model = None):
     # scores = model(torch.tensor(read.signal).reshape(-1,1,1))
     # probs = softmax_axis1(scores.reshape(-1,scores.shape[2]).detach().numpy())[:, 1:].astype(np.float64)
-    mod_idx = [substr.start() for substr in re.finditer("M" , read_attrs['sequence'])]
-    mm,ml = format_mm_tags(read_attrs['sequence'],mod_idx,"M","C")
-    
+    mod_types = ["m","h"]
+    can_types = ["C","C"]
+    mm = ""
+    ml = []
+    for i in range(len(mod_types)):
+        for j in range(len(mod_types)):
+            if j!=i:
+                tmp_seq = read_attrs['sequence'].replace(mod_types[j],can_types[j])
+        mod_idx = [substr.start() for substr in re.finditer(mod_types[i] , tmp_seq)]
+        tmp = format_mm_tags(tmp_seq,mod_idx,mod_types[i],can_types[i])
+        mm += tmp[0]; ml += tmp[1]
+
     read_attrs['mods'] =[
-        f"MM:Z:{mm}",
-        f"ML:{ml}"
+        f"Mm:Z:{mm}",
+        f"Ml:B:C,{','.join(map(str, ml))}"
     ]
     return read_attrs 
-
-def format_mm_ml_tags(seq, poss, probs, mod_bases, can_base):
-    """Format MM and ML tags for BAM output. See
-    https://samtools.github.io/hts-specs/SAMtags.pdf for format details.
-
-    Args:
-        seq (str): read-centric read sequence. For reference-anchored calls
-            this should be the reverse complement sequence.
-        poss (list): positions relative to seq
-        probs (np.array): probabilties for modified bases
-        mod_bases (str): modified base single letter codes
-        can_base (str): canonical base
-
-    Returns:
-        MM string tag and ML array tag
-    """
-
-    # initialize dict with all called mods to make sure all called mods are
-    # shown in resulting tags
-    per_mod_probs = dict((mod_base, []) for mod_base in mod_bases)
-    for pos, mod_probs in sorted(zip(poss, probs)):
-        # mod_lps is set to None if invalid sequence is encountered or too
-        # few events are found around a mod
-        if mod_probs is None:
-            continue
-        for mod_prob, mod_base in zip(mod_probs, mod_bases):
-            mod_prob = mod_prob
-            per_mod_probs[mod_base].append((pos, mod_prob))
-
-    mm_tag, ml_tag = "", array.array("B")
-    for mod_base, pos_probs in per_mod_probs.items():
-        if len(pos_probs) == 0:
-            continue
-        mod_poss, probs = zip(*sorted(pos_probs))
-        # compute modified base positions relative to the running total of the
-        # associated canonical base
-        can_base_mod_poss = (
-            np.cumsum([1 if b == can_base else 0 for b in seq])[
-                np.array(mod_poss)
-            ]
-            - 1
-        )
-        mod_gaps = ",".join(
-            map(str, np.diff(np.insert(can_base_mod_poss, 0, -1)) - 1)
-        )
-        mm_tag += f"{can_base}+{mod_base}?,{mod_gaps};"
-        # extract mod scores and scale to 0-255 range
-        scaled_probs = np.floor(np.array(probs) * 256)
-        # last interval includes prob=1
-        scaled_probs[scaled_probs == 256] = 255
-        ml_tag.extend(scaled_probs.astype(np.uint8))
-
-    return mm_tag, ml_tag
-
 
 def format_mm_tags(seq, poss, mod_base, can_base):
     """Format MM and ML tags for BAM output. See
@@ -306,20 +241,20 @@ def format_mm_tags(seq, poss, mod_base, can_base):
     # compute modified base positions relative to the running total of the
     # associated canonical base
     if(len(poss)==0):
-        return f"{can_base}+{mod_base}?;"
+        return f"{can_base}+{mod_base};",ml_tag
     can_base_mod_poss = (
-        np.cumsum([1 if b == can_base else 0 for b in seq])[
+        np.cumsum([1 if b == can_base else 0 for b in seq.replace(mod_base,can_base)])[
             np.array(poss)
         ]
         - 1
     )
     mod_gaps = ",".join(
-        map(str, np.diff(np.insert(can_base_mod_poss, 0, -1)) - 1)
+        map(str, np.diff(np.insert(can_base_mod_poss, 0, -1)) -1)
     )
-    mm_tag += f"{can_base}+{mod_base}?,{mod_gaps};"
+    mm_tag += f"{can_base}+{mod_base},{mod_gaps};"
     # extract mod scores and scale to 0-255 range
     for _ in range(len(poss)):
-        ml_tag.extend(255)
+        ml_tag.extend([255])
 
     return mm_tag,ml_tag
 

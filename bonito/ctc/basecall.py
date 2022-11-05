@@ -11,23 +11,21 @@ from bonito.util import mean_qscore_from_qstring
 from bonito.util import chunk, stitch, batchify, unbatchify, permute
 
 
-
 def basecall(model, reads, beamsize=5, chunksize=0, overlap=0, batchsize=1, qscores=False, reverse=None):
     """
     Basecalls a set of reads.
     """
-    chunks = [
+    chunks = (
         (read, chunk(torch.tensor(read.signal), chunksize, overlap)) for read in reads
-    ]
+    )
     scores = unbatchify(
         (k, compute_scores(model, v)) for k, v in batchify(chunks, batchsize)
     )
-    scores = [
+    scores = (
         (read, {'scores': stitch(v, chunksize, overlap, len(read.signal), model.stride)}) for read, v in scores
-    ]
+    )
     decoder = partial(decode, decode=model.decode, beamsize=beamsize, qscores=qscores, stride=model.stride)
     basecalls = process_map(decoder, scores, n_proc=4)
-    
     return basecalls
 
 

@@ -1,11 +1,11 @@
 from torch.utils.data import DataLoader
 from torch.utils import data
 class CustomDataset(data.Dataset):#需要继承data.Dataset
-    def __init__(self,x,tf):
+    def __init__(self,signal,seq):
         # TODO
         # 1. Initialize file path or list of file names.
-        self.X=x 
-        self.y=tf
+        self.X=signal 
+        self.y=seq
         self.length=len(self.X)
         pass
     def __getitem__(self, index):

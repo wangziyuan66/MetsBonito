@@ -474,7 +474,7 @@ def compute_filter_params(read_data):
     #     args.filter_min_pass_fraction, net_info.stride,
     #     args.filter_path_buffer)
     filter_params = chunk_selection.sample_filter_parameters(
-        read_data, 100000, sampling_chunk_len,
+        read_data, 100, sampling_chunk_len,
         3, 10,0.5, 5,1.1)
     print((
         '* Sampled {} chunks: median(mean_dwell)={:.2f}, mad(mean_dwell)=' +
@@ -702,16 +702,14 @@ def gen_batch(dir, limit = None, args = None):
     #     filter_params, mod_info, reporting_batch_list, logs)
         # Chunk length is chosen randomly in the range given but forced to
         # be a multiple of the stride
-    batch_chunk_len = (
-        np.random.randint(2000) //
-        6) * 6
+    batch_chunk_len = 1000
     # We choose the size of a sub-batch so that the size of the data in
     # the sub-batch is about the same as args.min_sub_batch_size chunks of
     # length args.chunk_len_max
-    sub_batch_size = 100
+    sub_batch_size = 8
     main_batch_gen = prepare_random_batches(
             read_data, batch_chunk_len, sub_batch_size,
-            10, alphabet_info, filter_params)
+            100, alphabet_info, filter_params)
     return main_batch_gen
 
 

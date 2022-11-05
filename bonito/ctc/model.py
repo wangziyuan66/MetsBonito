@@ -31,9 +31,6 @@ class Model(Module):
         self.alphabet = config['labels']['labels']
         self.features = config['block'][-1]['filters']
         self.encoder = Encoder(config)
-
-        for p in self.parameters():
-            p.requires_grad=False
         
         self.decoder = Decoder(self.features, len(self.alphabet))
 
@@ -43,6 +40,7 @@ class Model(Module):
 
     def decode(self, x, beamsize=5, threshold=1e-3, qscores=False, return_path=False):
         x = x.exp().cpu().detach().numpy().astype(np.float32)
+        # x = np.sqrt(x)
         if beamsize == 1 or qscores:
             seq, path  = viterbi_search(x, self.alphabet, qscores, self.qscale, self.qbias)
         else:
@@ -50,25 +48,30 @@ class Model(Module):
         if return_path: return seq, path
         return seq
 
-    def ctc_label_smoothing_loss(self, log_probs, targets, lengths, weights=None):
+    def ctc_label_smoothing_loss(self, log_probs, targets, lengths, weights=None, dirname = "/xdisk/hongxuding/ziyuan/meta-bonito/MetsBonito/bonito/models/dna_r9.4.1@v2"):
         T, N, C = log_probs.shape
-        weights = weights or torch.cat([torch.tensor([0.4]), (0.1 / (C - 1)) * torch.ones(C - 1)])
+        weights = torch.cat([torch.tensor([0.4]), (0.2 / (C - 1)) * torch.ones(C - 1)])
+        # weights = torch.tensor(weights)
         log_probs_lengths = torch.full(size=(N, ), fill_value=T, dtype=torch.int64)
-        loss = ctc_loss(log_probs.to(torch.float32), targets, log_probs_lengths, lengths, reduction='mean')
+        loss = ctc_loss(log_probs.to(torch.float32), targets.view(-1)[targets.view(-1)!=0], log_probs_lengths, lengths, reduction='mean')
+        # targets[targets == 4] = 1
+        # loss += ctc_loss(log_probs[:,:,0:5].to(torch.float32), targets+1, log_probs_lengths, lengths, reduction='mean')*0.5
         label_smoothing_loss = -((log_probs * weights.to(log_probs.device)).mean())
-        dirname = "/home/princezwang/software/bonito/bonito/models/dna_r9.4.1@v2"
-        regularization = self.model_weight_regularization_loss(model = load_model(dirname, 'cpu'))
-        return {'total_loss': loss + label_smoothing_loss+regularization, 'loss': loss, 'label_smooth_loss': label_smoothing_loss, "Regularization_loss" : regularization}
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        # model = load_model(dirname, device)
+        # regularization = self.model_weight_regularization_loss(model = load_model(dirname, device),maintained = [0,1,2,3,4], new_weight = [0,1,2,3,4] )
+        # regularization = 0
+        return {'total_loss': loss + label_smoothing_loss, 'loss': loss, 'label_smooth_loss': label_smoothing_loss}
 
     def loss(self, log_probs, targets, lengths):
         return self.ctc_label_smoothing_loss(self, log_probs, targets, lengths)
 
-    def model_weight_regularization_loss(self,model,maintained = [0,1,2,3]):
+    def model_weight_regularization_loss(self,model,maintained = [0,1,2,3,4,1], new_weight = [0,1,2,3,4,5]):
         decoder_wr = self.state_dict()["decoder.layers.0.weight"]
-        decoder_biasr = self.state_dict()["decoder.layers.0.bias"]
+        # decoder_biasr = self.state_dict()["decoder.layers.0.bias"]
         decoder_wp = model.state_dict()["decoder.layers.0.weight"]
-        decoder_biasp = model.state_dict()["decoder.layers.0.bias"]
-        return torch.mean(torch.abs(decoder_wp[maintained]-decoder_wr[maintained]))
+        # decoder_biasp = model.state_dict()["decoder.layers.0.bias"]
+        return torch.mean(torch.abs(decoder_wp[new_weight]-decoder_wr[maintained]))
 
 class Encoder(Module):
     """

@@ -20,6 +20,14 @@ import parasail
 import numpy as np
 from torch.cuda import get_device_capability
 
+from copy import deepcopy
+
+import torch
+from torch import nn
+from torch.nn import functional as F
+from torch.autograd import Variable
+import torch.utils.data
+
 try:
     from claragenomics.bindings import cuda
     from claragenomics.bindings.cudapoa import CudaPoaBatch
@@ -234,7 +242,7 @@ def load_symbol(config, symbol):
             dirname = os.path.join(__models__, config)
         else:
             dirname = config
-        config = toml.load(os.path.join(dirname, 'config.toml'))
+        config = toml.load(os.path.join("/xdisk/hongxuding/ziyuan/meta-bonito/MetsBonito/bonito/models/dna_r9.4.1@v2", 'config.toml'))
     imported = import_module(config['model']['package'])
     return getattr(imported, symbol)
 
@@ -305,10 +313,10 @@ def _load_model(model_file, config, device, half=None, use_koi=False):
 
     model.load_state_dict(new_state_dict)
 
-    if half is None:
-        half = half_supported()
+    # if half is None:
+    #     half = half_supported()
 
-    if half: model = model.half()
+    # if half: model = model.half()
     model.eval()
     model.to(device)
     return model
@@ -411,3 +419,80 @@ def poa(groups, max_poa_sequences=100, gpu_mem_per_batch=0.9):
             group_status, seq_status = batch.add_poa_group(group)
 
     return results
+
+
+
+
+def variable(t: torch.Tensor, use_cuda=True, **kwargs):
+    if torch.cuda.is_available() and use_cuda:
+        t = t.cuda()
+    return Variable(t, **kwargs)
+
+
+class EWC(object):
+    def __init__(self, model: nn.Module, dataset: list):
+
+        self.model = model
+        self.dataset = dataset
+
+        self.params = {n: p for n, p in self.model.named_parameters() if p.requires_grad}
+        self._means = {}
+        self._precision_matrices = self._diag_fisher()
+
+        for n, p in deepcopy(self.params).items():
+            self._means[n] = variable(p.data)
+
+    def _diag_fisher(self):
+        precision_matrices = {}
+        for n, p in deepcopy(self.params).items():
+            p.data.zero_()
+            precision_matrices[n] = variable(p.data)
+
+        self.model.eval()
+        for input in self.dataset:
+            self.model.zero_grad()
+            input = variable(input)
+            output = self.model(input).view(1, -1)
+            label = output.max(1)[1].view(-1)
+            loss = F.nll_loss(F.log_softmax(output, dim=1), label)
+            loss.backward()
+
+            for n, p in self.model.named_parameters():
+                precision_matrices[n].data += p.grad.data ** 2 / len(self.dataset)
+
+        precision_matrices = {n: p for n, p in precision_matrices.items()}
+        return precision_matrices
+
+    def penalty(self, model: nn.Module):
+        loss = 0
+        for n, p in model.named_parameters():
+            _loss = self._precision_matrices[n] * (p - self._means[n]) ** 2
+            loss += _loss.sum()
+        return loss
+
+
+
+
+def ewc_train(model: nn.Module, optimizer: torch.optim, data_loader: torch.utils.data.DataLoader,
+              ewc: EWC, importance: float):
+    model.train()
+    epoch_loss = 0
+    for input, target in data_loader:
+        input, target = variable(input), variable(target)
+        optimizer.zero_grad()
+        output = model(input)
+        loss = F.cross_entropy(output, target) + importance * ewc.penalty(model)
+        epoch_loss += loss.data[0]
+        loss.backward()
+        optimizer.step()
+    return epoch_loss / len(data_loader)
+
+
+def test(model: nn.Module, data_loader: torch.utils.data.DataLoader):
+    model.eval()
+    correct = 0
+    for input, target in data_loader:
+        input, target = variable(input), variable(target)
+        output = model(input)
+        correct += (F.softmax(output, dim=1).max(dim=1)[1] == target).data.sum()
+    return correct / len(data_loader.dataset)
