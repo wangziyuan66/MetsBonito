@@ -53,13 +53,13 @@ class Model(Module):
         weights = torch.cat([torch.tensor([0.4]), (0.2 / (C - 1)) * torch.ones(C - 1)])
         # weights = torch.tensor(weights)
         log_probs_lengths = torch.full(size=(N, ), fill_value=T, dtype=torch.int64)
-<<<<<<< HEAD
+
         loss = ctc_loss(log_probs.to(torch.float32), targets.view(-1)[targets.view(-1)!=0], log_probs_lengths, lengths, reduction='mean')
         # targets[targets == 4] = 1
         # loss += ctc_loss(log_probs[:,:,0:5].to(torch.float32), targets+1, log_probs_lengths, lengths, reduction='mean')*0.5
-=======
+
         loss = ctc_loss(log_probs.to(torch.float32), targets+1, log_probs_lengths, lengths, reduction='mean')
->>>>>>> afe0c8c0a7e5d542347a053af710b8e923ed8238
+
         label_smoothing_loss = -((log_probs * weights.to(log_probs.device)).mean())
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         # model = load_model(dirname, device)

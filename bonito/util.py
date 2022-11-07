@@ -242,7 +242,7 @@ def load_symbol(config, symbol):
             dirname = os.path.join(__models__, config)
         else:
             dirname = config
-        config = toml.load(os.path.join("/xdisk/hongxuding/ziyuan/meta-bonito/MetsBonito/bonito/models/dna_r9.4.1@v2", 'config.toml'))
+        config = toml.load(os.path.join("/home/princezwang/software/MetsBonito/bonito/models/dna_r9.4.1@v2", 'config.toml'))
     imported = import_module(config['model']['package'])
     return getattr(imported, symbol)
 
